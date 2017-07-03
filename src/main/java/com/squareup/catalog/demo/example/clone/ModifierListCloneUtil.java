@@ -23,18 +23,24 @@ import java.util.HashSet;
 
 /**
  * Utility methods used to clone a {@link CatalogModifierList}.
+ *
+ * If a modifier list in the source account has the same name and selection type as a modifier
+ * list in the target account, then the modifier list in the source account is not cloned. In
+ * that case, the modifiers from the modifier list in the source account will be added to the
+ * modifier list in the target account if they do not match any of the existing modifiers.
  */
 class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> {
 
   ModifierListCloneUtil() {
-    super(CatalogObject.TypeEnum.MODIFIER_LIST);
+    super(CatalogObject.TypeEnum.MODIFIER_LIST, true);
   }
 
   @Override CatalogModifierList getCatalogData(CatalogObject catalogObject) {
     return catalogObject.getModifierListData();
   }
 
-  @Override public String encodeCatalogData(CatalogModifierList modifierList) {
+  @Override
+  public String encodeCatalogData(CatalogModifierList modifierList, boolean fromSourceAccount) {
     return modifierList.getName() + ":::" + modifierList.getSelectionType();
   }
 
@@ -42,13 +48,10 @@ class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> 
   void removeSourceAccountMetaData(CatalogObject catalogObject) {
     super.removeSourceAccountMetaData(catalogObject);
 
-    // Make modifier lists available at all locations by default.
-    catalogObject.setPresentAtAllLocations(true);
-
     // Also remove meta data from the embedded modifiers.
     CatalogModifierList modifierList = catalogObject.getModifierListData();
-    for (CatalogObject modifierObject : modifierList.getModifiers()) {
-      removeSourceAccountMetaDataFromModifier(modifierObject, catalogObject);
+    for (CatalogObject modifier : modifierList.getModifiers()) {
+      removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, modifier);
     }
   }
 
@@ -66,7 +69,7 @@ class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> 
       String encodeModifier = encodeModifier(modifierObject);
       if (!targetModifiers.contains(encodeModifier)) {
         // Prepare the catalog object for the target account.
-        removeSourceAccountMetaDataFromModifier(modifierObject, targetCatalogObject);
+        removeSourceAccountMetaDataFromNestedCatalogObject(targetCatalogObject, modifierObject);
 
         // Add the modifier to the target modifier list.
         targetModifierList.addModifiersItem(modifierObject);
@@ -99,19 +102,5 @@ class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> 
     long amount = (price == null) ? 0 : price.getAmount();
 
     return modifier.getName() + ":::" + amount;
-  }
-
-  /**
-   * Removes meta data from the {@link CatalogObject} that only applies to the source account, such
-   * as location IDs and version. Also matches locations with the parent modifier list.
-   */
-  private void removeSourceAccountMetaDataFromModifier(CatalogObject modifier,
-      CatalogObject modifierList) {
-    super.removeSourceAccountMetaData(modifier);
-
-    // Make the locations of the modifier match the locations of the modifier list.
-    modifier.setPresentAtAllLocations(modifierList.getPresentAtAllLocations());
-    modifier.setPresentAtLocationIds(modifierList.getPresentAtLocationIds());
-    modifier.setAbsentAtLocationIds(modifierList.getAbsentAtLocationIds());
   }
 }

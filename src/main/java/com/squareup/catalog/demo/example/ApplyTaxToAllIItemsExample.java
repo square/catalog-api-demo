@@ -16,10 +16,10 @@
 package com.squareup.catalog.demo.example;
 
 import com.squareup.catalog.demo.Logger;
+import com.squareup.catalog.demo.util.CatalogObjects;
 import com.squareup.connect.ApiException;
 import com.squareup.connect.api.CatalogApi;
 import com.squareup.connect.api.LocationsApi;
-import com.squareup.connect.models.CatalogItem;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.CatalogTax;
 import com.squareup.connect.models.ListCatalogResponse;
@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.squareup.catalog.demo.util.Prompts.promptUserInput;
-import static com.squareup.connect.models.CatalogItem.ProductTypeEnum.REGULAR;
 import static com.squareup.connect.models.CatalogObjectType.ITEM;
 import static com.squareup.connect.models.CatalogObjectType.TAX;
 
@@ -150,8 +149,7 @@ public class ApplyTaxToAllIItemsExample extends Example {
             .addTaxesToEnableItem(taxId);
         for (CatalogObject item : items) {
           // Ignore non-regular items and items already linked to the tax.
-          CatalogItem.ProductTypeEnum itemType = item.getItemData().getProductType();
-          if ((itemType == null || itemType == REGULAR) &&
+          if (CatalogObjects.isRegularItem(item.getItemData()) &&
               !item.getItemData().getTaxIds().contains(taxId)) {
             updateItemTaxesRequest.addItemIdsItem(item.getId());
           }

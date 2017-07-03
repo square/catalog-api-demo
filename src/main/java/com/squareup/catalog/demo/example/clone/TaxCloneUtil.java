@@ -23,18 +23,21 @@ import static com.squareup.connect.models.CatalogObject.TypeEnum.TAX;
 
 /**
  * Utility methods used to clone a {@link CatalogDiscount}.
+ *
+ * If a tax in the source account has the same name, percentage, and inclusion type as a tax in
+ * the target account, then the tax in the source account is not cloned.
  */
 class TaxCloneUtil extends CatalogObjectCloneUtil<CatalogTax> {
 
   TaxCloneUtil() {
-    super(TAX);
+    super(TAX, false);
   }
 
   @Override CatalogTax getCatalogData(CatalogObject catalogObject) {
     return catalogObject.getTaxData();
   }
 
-  @Override String encodeCatalogData(CatalogTax tax) {
+  @Override String encodeCatalogData(CatalogTax tax, boolean fromSourceAccount) {
     return tax.getName() + ":::" + tax.getPercentage() + ":::" + tax.getInclusionType();
   }
 }

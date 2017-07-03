@@ -35,6 +35,6 @@ public class TaxCloneUtilTest {
         .name("name")
         .percentage("12.34")
         .inclusionType(ADDITIVE);
-    assertThat(cloneUtil.encodeCatalogData(tax)).isEqualTo("name:::12.34:::ADDITIVE");
+    assertThat(cloneUtil.encodeCatalogData(tax, false)).isEqualTo("name:::12.34:::ADDITIVE");
   }
 }

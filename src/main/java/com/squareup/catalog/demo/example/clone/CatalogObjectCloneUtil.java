@@ -16,8 +16,10 @@
 package com.squareup.catalog.demo.example.clone;
 
 import com.squareup.connect.models.CatalogObject;
+import com.squareup.connect.models.ListCatalogResponse;
 import com.squareup.connect.models.Money;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,9 +30,16 @@ import java.util.UUID;
 abstract class CatalogObjectCloneUtil<T> {
 
   final CatalogObject.TypeEnum type;
+  private final boolean presentAtAllLocationsByDefault;
 
-  CatalogObjectCloneUtil(CatalogObject.TypeEnum type) {
+  /**
+   * @param type the type of {@link CatalogObject} to clone
+   * @param presentAtAllLocationsByDefault if true, this object should be enabled at all locations
+   * in the target account
+   */
+  CatalogObjectCloneUtil(CatalogObject.TypeEnum type, boolean presentAtAllLocationsByDefault) {
     this.type = type;
+    this.presentAtAllLocationsByDefault = presentAtAllLocationsByDefault;
   }
 
   /**
@@ -43,10 +52,13 @@ abstract class CatalogObjectCloneUtil<T> {
    * CatalogObjects to be compared between merchant accounts for likeness. If the encoded string of
    * a {@link CatalogObject} in the source account matches the encoded string of a {@link
    * CatalogObject} in the target account, then the object is not cloned.
+   *
+   * @param fromSourceAccount true if the object is from the source account, false if from the
+   * target account
    */
-  final String encodeCatalogObject(CatalogObject catalogObject) {
+  final String encodeCatalogObject(CatalogObject catalogObject, boolean fromSourceAccount) {
     T catalogData = getCatalogData(catalogObject);
-    return encodeCatalogData(catalogData);
+    return encodeCatalogData(catalogData, fromSourceAccount);
   }
 
   /**
@@ -56,8 +68,22 @@ abstract class CatalogObjectCloneUtil<T> {
    * CatalogObject} in the target account, then the object is not cloned.
    *
    * @param catalogData the data from the {@link CatalogObject}.
+   * @param fromSourceAccount true if the object is from the source account, false if from the
+   * target account
    */
-  abstract String encodeCatalogData(T catalogData);
+  abstract String encodeCatalogData(T catalogData, boolean fromSourceAccount);
+
+  /**
+   * Retrieve the catalog objects from the {@link ListCatalogResponse}. Subclasses can filter out
+   * unwanted objects.
+   *
+   * @param listResponse the response
+   * @return a filtered down list of {@link CatalogObject}
+   */
+  List<CatalogObject> getCatalogObjectsFromListResponse(ListCatalogResponse listResponse) {
+    // By default, assume we want all objects in the response
+    return listResponse.getObjects();
+  }
 
   /**
    * Encodes a {@link Money} object to a string.
@@ -76,6 +102,33 @@ abstract class CatalogObjectCloneUtil<T> {
    * @param catalogObject the {@link CatalogObject} to modify
    */
   void removeSourceAccountMetaData(CatalogObject catalogObject) {
+    removeSourceAccountMetaDataImpl(catalogObject);
+  }
+
+  /**
+   * Removes meta data from a {@link CatalogObject} nested inside another. Also matches locations
+   * with the parent {@link CatalogObject}.
+   *
+   * @param parent the parent {@link CatalogObject}
+   * @param child the nested {@link CatalogObject}
+   */
+  void removeSourceAccountMetaDataFromNestedCatalogObject(CatalogObject parent,
+      CatalogObject child) {
+    removeSourceAccountMetaDataImpl(child);
+
+    // Make the locations of the nested object match the locations of the parent.
+    child.setPresentAtAllLocations(parent.getPresentAtAllLocations());
+    child.setPresentAtLocationIds(parent.getPresentAtLocationIds());
+    child.setAbsentAtLocationIds(parent.getAbsentAtLocationIds());
+  }
+
+  /**
+   * Removes meta data from the {@link CatalogObject} that only applies to the source account, such
+   * as location IDs and version.
+   *
+   * @param catalogObject the {@link CatalogObject} to modify
+   */
+  private void removeSourceAccountMetaDataImpl(CatalogObject catalogObject) {
     // We need to set a temporary client generated ID.
     catalogObject.setId("#" + UUID.randomUUID());
 
@@ -91,6 +144,10 @@ abstract class CatalogObjectCloneUtil<T> {
 
     // The server will update the timestamp.
     catalogObject.setUpdatedAt(null);
+
+    if (presentAtAllLocationsByDefault) {
+      catalogObject.setPresentAtAllLocations(presentAtAllLocationsByDefault);
+    }
   }
 
   /**

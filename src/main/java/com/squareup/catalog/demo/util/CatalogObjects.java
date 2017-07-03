@@ -23,6 +23,7 @@ import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.CatalogObject.TypeEnum;
 import java.util.UUID;
 
+import static com.squareup.connect.models.CatalogItem.ProductTypeEnum.REGULAR;
 import static java.util.Arrays.asList;
 
 /**
@@ -98,6 +99,14 @@ public class CatalogObjects {
             .name(name)
             .pricingType(PricingTypeEnum.FIXED_PRICING)
             .priceMoney(Moneys.usd(cents)));
+  }
+
+  /**
+   * Returns true if the specified {@link CatalogItem} is a REGULAR item.
+   */
+  public static boolean isRegularItem(CatalogItem item) {
+    CatalogItem.ProductTypeEnum productType = item.getProductType();
+    return productType == null || productType == REGULAR;
   }
 
   private CatalogObjects() {

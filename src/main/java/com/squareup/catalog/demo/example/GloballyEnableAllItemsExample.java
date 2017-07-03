@@ -16,13 +16,13 @@
 package com.squareup.catalog.demo.example;
 
 import com.squareup.catalog.demo.Logger;
+import com.squareup.catalog.demo.util.CatalogObjects;
 import com.squareup.connect.ApiException;
 import com.squareup.connect.api.CatalogApi;
 import com.squareup.connect.api.LocationsApi;
 import com.squareup.connect.models.BatchUpsertCatalogObjectsRequest;
 import com.squareup.connect.models.BatchUpsertCatalogObjectsResponse;
 import com.squareup.connect.models.CatalogItem;
-import com.squareup.connect.models.CatalogItem.ProductTypeEnum;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.CatalogObjectBatch;
 import com.squareup.connect.models.ListCatalogResponse;
@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.squareup.connect.models.CatalogItem.ProductTypeEnum.REGULAR;
 import static com.squareup.connect.models.CatalogObjectType.ITEM;
 import static java.util.Collections.emptyList;
 
@@ -67,8 +66,7 @@ public class GloballyEnableAllItemsExample extends Example {
         List<CatalogObject> itemsToUpdate = new ArrayList<>();
         for (CatalogObject itemObject : items) {
           CatalogItem item = itemObject.getItemData();
-          ProductTypeEnum productType = item.getProductType();
-          boolean isRegularItem = productType == null || productType == REGULAR;
+          boolean isRegularItem = CatalogObjects.isRegularItem(item);
           boolean isGloballyEnabled = itemObject.getPresentAtAllLocations()
               && itemObject.getPresentAtLocationIds().isEmpty()
               && itemObject.getAbsentAtLocationIds().isEmpty();

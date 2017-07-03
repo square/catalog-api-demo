@@ -7,4 +7,8 @@ class CloneCatalogException extends Exception {
   CloneCatalogException() {
     super();
   }
+
+  CloneCatalogException(String message) {
+    super(message);
+  }
 }

@@ -40,7 +40,7 @@ public class DiscountCloneUtilTest {
         .discountType(FIXED_AMOUNT)
         .percentage(null)
         .amountMoney(Moneys.usd(1000));
-    assertThat(cloneUtil.encodeCatalogData(discount)).isEqualTo(
+    assertThat(cloneUtil.encodeCatalogData(discount, false)).isEqualTo(
         "name:::FIXED_AMOUNT:::null:::1000");
   }
 
@@ -50,7 +50,7 @@ public class DiscountCloneUtilTest {
         .discountType(FIXED_PERCENTAGE)
         .percentage("12.34")
         .amountMoney(null);
-    assertThat(cloneUtil.encodeCatalogData(discount)).isEqualTo(
+    assertThat(cloneUtil.encodeCatalogData(discount, false)).isEqualTo(
         "name:::FIXED_PERCENTAGE:::12.34:::null");
   }
 
@@ -60,7 +60,7 @@ public class DiscountCloneUtilTest {
         .discountType(VARIABLE_AMOUNT)
         .percentage(null)
         .amountMoney(null);
-    assertThat(cloneUtil.encodeCatalogData(discount)).isEqualTo(
+    assertThat(cloneUtil.encodeCatalogData(discount, false)).isEqualTo(
         "name:::VARIABLE_AMOUNT:::null:::null");
   }
 
@@ -70,7 +70,7 @@ public class DiscountCloneUtilTest {
         .discountType(VARIABLE_PERCENTAGE)
         .percentage(null)
         .amountMoney(null);
-    assertThat(cloneUtil.encodeCatalogData(discount)).isEqualTo(
+    assertThat(cloneUtil.encodeCatalogData(discount, false)).isEqualTo(
         "name:::VARIABLE_PERCENTAGE:::null:::null");
   }
 }

@@ -22,21 +22,21 @@ import static com.squareup.connect.models.CatalogObject.TypeEnum.DISCOUNT;
 
 /**
  * Utility methods used to clone a {@link CatalogDiscount}.
+ *
+ * If a discount in the source account has the same name, discount type, percentage, and amount
+ * as a discount in the target account, then the discount in the source account is not cloned.
  */
 class DiscountCloneUtil extends CatalogObjectCloneUtil<CatalogDiscount> {
 
-  private final boolean presentAtAllLocationsByDefault;
-
   DiscountCloneUtil(boolean presentAtAllLocationsByDefault) {
-    super(DISCOUNT);
-    this.presentAtAllLocationsByDefault = presentAtAllLocationsByDefault;
+    super(DISCOUNT, presentAtAllLocationsByDefault);
   }
 
   @Override CatalogDiscount getCatalogData(CatalogObject catalogObject) {
     return catalogObject.getDiscountData();
   }
 
-  @Override String encodeCatalogData(CatalogDiscount discount) {
+  @Override String encodeCatalogData(CatalogDiscount discount, boolean fromSourceAccount) {
     return discount.getName()
         + ":::"
         + discount.getDiscountType()
@@ -44,12 +44,5 @@ class DiscountCloneUtil extends CatalogObjectCloneUtil<CatalogDiscount> {
         + discount.getPercentage()
         + ":::"
         + amountOrNull(discount.getAmountMoney());
-  }
-
-  @Override void removeSourceAccountMetaData(CatalogObject catalogObject) {
-    super.removeSourceAccountMetaData(catalogObject);
-    if (presentAtAllLocationsByDefault) {
-      catalogObject.setPresentAtAllLocations(presentAtAllLocationsByDefault);
-    }
   }
 }

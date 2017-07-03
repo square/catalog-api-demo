@@ -38,7 +38,7 @@ public class ModifierListCloneUtilTest {
     CatalogModifierList modifierList = new CatalogModifierList()
         .name("name")
         .selectionType(MULTIPLE);
-    assertThat(cloneUtil.encodeCatalogData(modifierList)).isEqualTo("name:::MULTIPLE");
+    assertThat(cloneUtil.encodeCatalogData(modifierList, false)).isEqualTo("name:::MULTIPLE");
   }
 
   @Test public void removeSourceAccountMetaData_modifiersMatchModifierList() {
