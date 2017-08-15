@@ -77,7 +77,14 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
     for (CatalogObject variation : item.getVariations()) {
       removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, variation);
       variation.getItemVariationData().itemId(catalogObject.getId());
+
+      // Remove location-specific price overrides.
+      variation.getItemVariationData().locationOverrides(new ArrayList<>());
     }
+
+    // TODO: Don't do this when we support tax and modifier list memberships
+    item.taxIds(new ArrayList<>());
+    item.modifierListInfo(new ArrayList<>());
   }
 
   @Override
@@ -95,6 +102,10 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
       if (!targetVariations.contains(encodedVariation)) {
         // Prepare the catalog object for the target account.
         removeSourceAccountMetaDataFromNestedCatalogObject(targetCatalogObject, variation);
+        variation.getItemVariationData().itemId(targetCatalogObject.getId());
+
+        // Remove location-specific price overrides.
+        variation.getItemVariationData().locationOverrides(new ArrayList<>());
 
         // Add the variation to the target item.
         targetItem.addVariationsItem(variation);

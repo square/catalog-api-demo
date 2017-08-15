@@ -95,6 +95,7 @@ public class CloneCatalogExample extends Example {
         ItemCloneUtil itemCloneUtil = new ItemCloneUtil(config.itemsPresentAtAllLocationsByDefault,
             categorySourceIdToTargetObject);
         cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, itemCloneUtil);
+        // TODO Clone tax and modifier set links
       }
     } catch (CloneCatalogException e) {
       if (e.getMessage() != null) {
