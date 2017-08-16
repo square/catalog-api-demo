@@ -15,11 +15,14 @@
  */
 package com.squareup.catalog.demo.example.clone;
 
+import com.squareup.catalog.demo.util.CatalogObjects;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.ListCatalogResponse;
 import com.squareup.connect.models.Money;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -85,6 +88,10 @@ abstract class CatalogObjectCloneUtil<T> {
     return listResponse.getObjects();
   }
 
+  void getSourceIds(CatalogObject sourceObject, CatalogObject targetObject) {
+
+  }
+
   /**
    * Encodes a {@link Money} object to a string.
    *
@@ -100,9 +107,18 @@ abstract class CatalogObjectCloneUtil<T> {
    * as location IDs and version.
    *
    * @param catalogObject the {@link CatalogObject} to modify
+   * @return a mapping of catalog object IDs from the source account to client generated IDs to be
+   * inserted into the target account
    */
-  void removeSourceAccountMetaData(CatalogObject catalogObject) {
-    removeSourceAccountMetaDataImpl(catalogObject);
+  Map<String, String> removeSourceAccountMetaData(CatalogObject catalogObject) {
+    String sourceId = catalogObject.getId();
+    String clientId = removeSourceAccountMetaDataImpl(catalogObject);
+
+    // By default, the only mapping from source ID to client ID that we care about is the one on
+    // this Catalog object.
+    Map<String, String> sourceIdToClientId = new HashMap<>();
+    sourceIdToClientId.put(sourceId, clientId);
+    return sourceIdToClientId;
   }
 
   /**
@@ -111,15 +127,18 @@ abstract class CatalogObjectCloneUtil<T> {
    *
    * @param parent the parent {@link CatalogObject}
    * @param child the nested {@link CatalogObject}
+   * @return the client generated ID of the {@link CatalogObject}
    */
-  void removeSourceAccountMetaDataFromNestedCatalogObject(CatalogObject parent,
+  String removeSourceAccountMetaDataFromNestedCatalogObject(CatalogObject parent,
       CatalogObject child) {
-    removeSourceAccountMetaDataImpl(child);
+    String clientId = removeSourceAccountMetaDataImpl(child);
 
     // Make the locations of the nested object match the locations of the parent.
     child.setPresentAtAllLocations(parent.getPresentAtAllLocations());
     child.setPresentAtLocationIds(parent.getPresentAtLocationIds());
     child.setAbsentAtLocationIds(parent.getAbsentAtLocationIds());
+
+    return clientId;
   }
 
   /**
@@ -127,10 +146,13 @@ abstract class CatalogObjectCloneUtil<T> {
    * as location IDs and version.
    *
    * @param catalogObject the {@link CatalogObject} to modify
+   * @return the client generated ID of the {@link CatalogObject}
    */
-  private void removeSourceAccountMetaDataImpl(CatalogObject catalogObject) {
+  private String removeSourceAccountMetaDataImpl(CatalogObject catalogObject) {
     // We need to set a temporary client generated ID.
-    catalogObject.setId("#" + UUID.randomUUID());
+    String sourceId = catalogObject.getId();
+    String clientId = "#" + UUID.randomUUID();
+    catalogObject.setId(clientId);
 
     // The V1 IDs from the source account do not apply to the target account.
     catalogObject.setCatalogV1Ids(Collections.emptyList());
@@ -148,6 +170,8 @@ abstract class CatalogObjectCloneUtil<T> {
     if (presentAtAllLocationsByDefault) {
       catalogObject.setPresentAtAllLocations(presentAtAllLocationsByDefault);
     }
+
+    return clientId;
   }
 
   /**

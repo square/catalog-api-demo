@@ -17,6 +17,7 @@ package com.squareup.catalog.demo.example.clone;
 
 import com.squareup.catalog.demo.util.CatalogObjects;
 import com.squareup.connect.models.CatalogItem;
+import com.squareup.connect.models.CatalogItemModifierListInfo;
 import com.squareup.connect.models.CatalogItemVariation;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.ListCatalogResponse;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Utility methods used to clone a {@link CatalogItem}.
@@ -35,12 +37,38 @@ import java.util.List;
  */
 class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
 
-  private final HashMap<String, CatalogObject> categorySourceIdToTargetObject;
+  /**
+   * If true, modifier lists that applied to items in the source account should apply to items in
+   * the target account.
+   */
+  private final boolean includeAppliedModifierLists;
 
-  ItemCloneUtil(boolean presentAtAllLocationsByDefault,
-      HashMap<String, CatalogObject> categorySourceIdToTargetObject) {
+  /**
+   * If true, taxes that applied to items in the source account should apply to items in the target
+   * account.
+   */
+  private final boolean includeAppliedTaxes;
+
+  /**
+   * A mapping of the ID of catalog objects in the source account to the same catalog object in the
+   * target account.
+   */
+  private final HashMap<String, CatalogObject> sourceIdToTargetObject;
+
+  /**
+   * Constructs a new {@link ItemCloneUtil}.
+   *
+   * @param presentAtAllLocationsByDefault if true, items should be enabled at all locations in the
+   * target account
+   * @param sourceIdToTargetObject a mapping of the ID of catalog objects in the source account to
+   * the same catalog object in the target account
+   */
+  ItemCloneUtil(boolean presentAtAllLocationsByDefault, boolean includeAppliedModifierLists,
+      boolean includeAppliedTaxes, HashMap<String, CatalogObject> sourceIdToTargetObject) {
     super(CatalogObject.TypeEnum.ITEM, presentAtAllLocationsByDefault);
-    this.categorySourceIdToTargetObject = categorySourceIdToTargetObject;
+    this.includeAppliedModifierLists = includeAppliedModifierLists;
+    this.includeAppliedTaxes = includeAppliedTaxes;
+    this.sourceIdToTargetObject = sourceIdToTargetObject;
   }
 
   @Override CatalogItem getCatalogData(CatalogObject catalogObject) {
@@ -49,9 +77,9 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
 
   @Override public String encodeCatalogData(CatalogItem item, boolean fromSourceAccount) {
     String categoryId = item.getCategoryId();
-    if (fromSourceAccount && categoryId != null) {
+    if (fromSourceAccount) {
       // Convert the source category ID to a target category ID.
-      categoryId = categorySourceIdToTargetObject.get(categoryId).getId();
+      categoryId = getTargetCategoryIdBySourceId(categoryId);
     }
     return item.getName() + ":::" + categoryId;
   }
@@ -69,22 +97,53 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
   }
 
   @Override
-  void removeSourceAccountMetaData(CatalogObject catalogObject) {
-    super.removeSourceAccountMetaData(catalogObject);
+  Map<String, String> removeSourceAccountMetaData(CatalogObject catalogObject) {
+    Map<String, String> sourceIdToClientId = super.removeSourceAccountMetaData(catalogObject);
+
+    // Update the category ID to refer to the target category ID.
+    CatalogItem item = catalogObject.getItemData();
+    String sourceCategoryId = item.getCategoryId();
+    String targetCategoryId = getTargetCategoryIdBySourceId(item.getCategoryId());
+    item.categoryId(targetCategoryId);
+
+    // Update the tax IDs to refer to the target tax IDs.
+    // TODO: DO the same for merge
+    List<String> sourceTaxIds = item.getTaxIds();
+    item.taxIds(new ArrayList<>());
+    if (includeAppliedTaxes) {
+      for (String sourceTaxId : sourceTaxIds) {
+        String targetTaxId = getTargetTaxIdBySourceId(sourceTaxId);
+        item.addTaxIdsItem(targetTaxId);
+      }
+    }
+
+    // TODO: DO the same for merge
+    // TODO: Handle Modifiers
+    if (includeAppliedModifierLists) {
+      // Update the modifier list IDs to refer to the target modifier list IDs.
+      for (CatalogItemModifierListInfo modifierListInfo : item.getModifierListInfo()) {
+        String sourceModifierListId = modifierListInfo.getModifierListId();
+        String targetModifierListId = getTargetModifierListIdBySourceId(sourceModifierListId);
+        modifierListInfo.modifierListId(targetModifierListId);
+      }
+    } else {
+      // If we didn't clone modifier lists, then clear them out from the item.
+      item.modifierListInfo(new ArrayList<>());
+    }
 
     // Also remove meta data from the embedded item variations.
-    CatalogItem item = catalogObject.getItemData();
     for (CatalogObject variation : item.getVariations()) {
-      removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, variation);
+      String variationSourceId = variation.getId();
+      String variationClientId =
+          removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, variation);
+      sourceIdToClientId.put(variationSourceId, variationClientId);
       variation.getItemVariationData().itemId(catalogObject.getId());
 
       // Remove location-specific price overrides.
       variation.getItemVariationData().locationOverrides(new ArrayList<>());
     }
 
-    // TODO: Don't do this when we support tax and modifier list memberships
-    item.taxIds(new ArrayList<>());
-    item.modifierListInfo(new ArrayList<>());
+    return sourceIdToClientId;
   }
 
   @Override
@@ -135,5 +194,39 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
    */
   private String encodeVariation(CatalogItemVariation variation) {
     return variation.getName() + ":::" + amountOrNull(variation.getPriceMoney());
+  }
+
+  /**
+   * Get the ID of the category in the target account given the ID in the source account.
+   *
+   * @param sourceCategoryIdOrNull the ID of the category in the source account, or null
+   * @return the ID of the category in the target account, or null if sourceCategoryIdOrNull is null
+   */
+  private String getTargetCategoryIdBySourceId(String sourceCategoryIdOrNull) {
+    return sourceCategoryIdOrNull == null ? null
+        : sourceIdToTargetObject.get(sourceCategoryIdOrNull).getId();
+  }
+
+  /**
+   * Get the ID of the modifier list in the target account given the ID in the source account.
+   *
+   * @param sourceModifierListIdOrNull the ID of the modifier list in the source account, or null
+   * @return the ID of the modifier list in the target account, or null if
+   * sourceModifierListIdOrNull is null
+   */
+  private String getTargetModifierListIdBySourceId(String sourceModifierListIdOrNull) {
+    return sourceModifierListIdOrNull == null ? null
+        : sourceIdToTargetObject.get(sourceModifierListIdOrNull).getId();
+  }
+
+  /**
+   * Get the ID of the category in the target account given the ID in the source account.
+   *
+   * @param sourceTaxIdOrNull the ID of the tax in the source account, or null
+   * @return the ID of the tax in the target account, or null if sourceTaxIdOrNull is null
+   */
+  private String getTargetTaxIdBySourceId(String sourceTaxIdOrNull) {
+    return sourceTaxIdOrNull == null ? null
+        : sourceIdToTargetObject.get(sourceTaxIdOrNull).getId();
   }
 }

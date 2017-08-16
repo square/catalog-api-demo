@@ -65,37 +65,41 @@ public class CloneCatalogExample extends Example {
         createTargetCatalogApi(sourceCatalogApi, config.targetAccessToken);
 
     try {
+      // A mapping of the ID of catalog objects in the source account to the object in the
+      // target account.
+      HashMap<String, CatalogObject> sourceIdToTargetObject = null;
+
       // Clone discounts from source to target account.
       if (config.discountCloneUtil != null) {
-        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.discountCloneUtil);
+        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.discountCloneUtil,
+            sourceIdToTargetObject);
       }
 
       // Clone modifier lists from source to target account.
-      HashMap<String, CatalogObject> modifierListSourceIdToTargetObject = null;
       if (config.modifierListCloneUtil != null) {
-        modifierListSourceIdToTargetObject =
-            cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi,
-                config.modifierListCloneUtil);
+        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.modifierListCloneUtil,
+            sourceIdToTargetObject);
       }
 
       // Clone taxes from source to target account.
-      HashMap<String, CatalogObject> taxSourceIdToTargetObject = null;
       if (config.taxCloneUtil != null) {
-        taxSourceIdToTargetObject =
-            cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.taxCloneUtil);
+        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.taxCloneUtil,
+            sourceIdToTargetObject);
       }
 
       // Clone items and categories from source to target account.
       if (config.categoryCloneUtil != null) {
-        HashMap<String, CatalogObject> categorySourceIdToTargetObject =
-            cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.categoryCloneUtil);
+        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, config.categoryCloneUtil,
+            sourceIdToTargetObject);
 
         // The ItemCloneUtil uses the sourceIdToTargetCatalogObject mappings from the other catalog
         // objects that were cloned.
+        boolean includeAppliedModifierLists = config.modifierListCloneUtil != null;
+        boolean includeAppliedTaxes = config.taxCloneUtil != null;
         ItemCloneUtil itemCloneUtil = new ItemCloneUtil(config.itemsPresentAtAllLocationsByDefault,
-            categorySourceIdToTargetObject);
-        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, itemCloneUtil);
-        // TODO Clone tax and modifier set links
+            includeAppliedModifierLists, includeAppliedTaxes, sourceIdToTargetObject);
+        cloneCatalogObjectType(sourceCatalogApi, targetCatalogApi, itemCloneUtil,
+            sourceIdToTargetObject);
       }
     } catch (CloneCatalogException e) {
       if (e.getMessage() != null) {
@@ -178,12 +182,12 @@ public class CloneCatalogExample extends Example {
    * @param sourceCatalogApi the API used to access the catalog of the source account
    * @param targetCatalogApi the API used to access the catalog of the target account
    * @param cloneUtil the clone utility methods for the specified catalog object type
-   * @return a mapping of cloned CatalogObjects in the target account keyed by the object ID in the
-   * source account
+   * @param sourceIdToTargetObject a map of IDs from the source account to catalog objects in the
+   * target account. Cloned objects will be added to this map.
    */
-  private HashMap<String, CatalogObject> cloneCatalogObjectType(CatalogApi sourceCatalogApi,
+  private void cloneCatalogObjectType(CatalogApi sourceCatalogApi,
       CatalogApi targetCatalogApi,
-      CatalogObjectCloneUtil<?> cloneUtil)
+      CatalogObjectCloneUtil<?> cloneUtil, HashMap<String, CatalogObject> sourceIdToTargetObject)
       throws ApiException, CloneCatalogException {
     logger.info("\nCloning " + cloneUtil.type.toString());
 
@@ -193,7 +197,6 @@ public class CloneCatalogExample extends Example {
 
     // Retrieve catalog objects from the source account.
     logger.info("  Retrieving " + cloneUtil.type.toString() + " from source account");
-    HashMap<String, CatalogObject> sourceIdToTargetObject = new HashMap<>();
     String cursor = null;
     do {
       int clonedCatalogObjectCount = 0;
@@ -219,7 +222,7 @@ public class CloneCatalogExample extends Example {
             "    No "
                 + cloneUtil.type.toString().toLowerCase(Locale.US)
                 + " found in source account.");
-        return sourceIdToTargetObject;
+        return;
       }
 
       // Iterate over the catalog objects to clone.
@@ -235,10 +238,11 @@ public class CloneCatalogExample extends Example {
           String sourceId = sourceCatalogObject.getId();
 
           // Clear source account specific metadata, including the source ID.
-          cloneUtil.removeSourceAccountMetaData(sourceCatalogObject);
+          Map<String, String> newSourceIdToTargetId =
+              cloneUtil.removeSourceAccountMetaData(sourceCatalogObject);
 
           // Save the mapping of the source object ID to the new client generated ID.
-          sourceIdToClientId.put(sourceId, sourceCatalogObject.getId());
+          sourceIdToClientId.putAll(newSourceIdToTargetId);
 
           // Add the object to the list of objects to insert into the target catalog.
           catalogObjectsToUpsert.add(sourceCatalogObject);
@@ -281,8 +285,6 @@ public class CloneCatalogExample extends Example {
       // Move to the next page.
       cursor = listResponse.getCursor();
     } while (cursor != null);
-
-    return sourceIdToTargetObject;
   }
 
   /**

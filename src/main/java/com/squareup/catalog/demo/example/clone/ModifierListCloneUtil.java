@@ -20,14 +20,15 @@ import com.squareup.connect.models.CatalogModifierList;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.Money;
 import java.util.HashSet;
+import java.util.Map;
 
 /**
  * Utility methods used to clone a {@link CatalogModifierList}.
  *
- * If a modifier list in the source account has the same name and selection type as a modifier
- * list in the target account, then the modifier list in the source account is not cloned. In
- * that case, the modifiers from the modifier list in the source account will be added to the
- * modifier list in the target account if they do not match any of the existing modifiers.
+ * If a modifier list in the source account has the same name and selection type as a modifier list
+ * in the target account, then the modifier list in the source account is not cloned. In that case,
+ * the modifiers from the modifier list in the source account will be added to the modifier list in
+ * the target account if they do not match any of the existing modifiers.
  */
 class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> {
 
@@ -45,14 +46,19 @@ class ModifierListCloneUtil extends CatalogObjectCloneUtil<CatalogModifierList> 
   }
 
   @Override
-  void removeSourceAccountMetaData(CatalogObject catalogObject) {
-    super.removeSourceAccountMetaData(catalogObject);
+  Map<String, String> removeSourceAccountMetaData(CatalogObject catalogObject) {
+    Map<String, String> sourceIdToClientId = super.removeSourceAccountMetaData(catalogObject);
 
     // Also remove meta data from the embedded modifiers.
     CatalogModifierList modifierList = catalogObject.getModifierListData();
     for (CatalogObject modifier : modifierList.getModifiers()) {
-      removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, modifier);
+      String modifierSourceId = modifier.getId();
+      String modifierClientId =
+          removeSourceAccountMetaDataFromNestedCatalogObject(catalogObject, modifier);
+      sourceIdToClientId.put(modifierSourceId, modifierClientId);
     }
+
+    return sourceIdToClientId;
   }
 
   @Override
