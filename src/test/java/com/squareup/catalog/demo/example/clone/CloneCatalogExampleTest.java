@@ -43,8 +43,8 @@ public class CloneCatalogExampleTest {
     sourceIdToClientId.put("source1", "#client1");
     sourceIdToClientId.put("source2", "#client2");
 
-    HashMap<String, CatalogObject> sourceIdToTargetObject = new HashMap<>();
-    sourceIdToTargetObject.put("sourceAlreadyInMap", new CatalogObject().id("targetAlreadyInMap"));
+    HashMap<String, String> sourceIdToTargetId = new HashMap<>();
+    sourceIdToTargetId.put("sourceAlreadyInMap", "targetAlreadyInMap");
 
     BatchUpsertCatalogObjectsResponse response = new BatchUpsertCatalogObjectsResponse()
         .addObjectsItem(new CatalogObject().id("target1"))
@@ -53,11 +53,10 @@ public class CloneCatalogExampleTest {
         .addIdMappingsItem(new CatalogIdMapping().clientObjectId("#client2").objectId("target2"));
 
     example.mapSourceIdsToInsertedCatalogObject(response, sourceIdToClientId,
-        sourceIdToTargetObject);
-    assertThat(sourceIdToTargetObject).hasSize(3);
-    assertThat(sourceIdToTargetObject.get("sourceAlreadyInMap").getId()).isEqualTo(
-        "targetAlreadyInMap");
-    assertThat(sourceIdToTargetObject.get("source1").getId()).isEqualTo("target1");
-    assertThat(sourceIdToTargetObject.get("source2").getId()).isEqualTo("target2");
+        sourceIdToTargetId);
+    assertThat(sourceIdToTargetId).hasSize(3);
+    assertThat(sourceIdToTargetId.get("sourceAlreadyInMap")).isEqualTo("targetAlreadyInMap");
+    assertThat(sourceIdToTargetId.get("source1")).isEqualTo("target1");
+    assertThat(sourceIdToTargetId.get("source2")).isEqualTo("target2");
   }
 }

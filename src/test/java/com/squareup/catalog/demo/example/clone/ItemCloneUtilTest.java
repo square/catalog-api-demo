@@ -29,15 +29,15 @@ import static org.fest.assertions.Assertions.assertThat;
 
 public class ItemCloneUtilTest {
 
-  private HashMap<String, CatalogObject> sourceIdToTargetObject = new HashMap<>();
+  private HashMap<String, String> sourceIdToTargetId = new HashMap<>();
   private ItemCloneUtil cloneUtil;
 
   @Before public void setUp() {
-    this.cloneUtil = new ItemCloneUtil(true, true, true, sourceIdToTargetObject);
+    this.cloneUtil = new ItemCloneUtil(true, true, true, sourceIdToTargetId);
   }
 
   @Test public void encodeCatalogData_fromSourceAccount() {
-    sourceIdToTargetObject.put("sourceCategoryId", new CatalogObject().id("targetCategoryId"));
+    sourceIdToTargetId.put("sourceCategoryId", "targetCategoryId");
     CatalogItem item = new CatalogItem()
         .name("name")
         .categoryId("sourceCategoryId");

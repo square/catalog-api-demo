@@ -19,6 +19,7 @@ import com.squareup.catalog.demo.util.CatalogObjects;
 import com.squareup.connect.models.CatalogItem;
 import com.squareup.connect.models.CatalogItemModifierListInfo;
 import com.squareup.connect.models.CatalogItemVariation;
+import com.squareup.connect.models.CatalogModifierOverride;
 import com.squareup.connect.models.CatalogObject;
 import com.squareup.connect.models.ListCatalogResponse;
 import java.util.ArrayList;
@@ -50,25 +51,25 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
   private final boolean includeAppliedTaxes;
 
   /**
-   * A mapping of the ID of catalog objects in the source account to the same catalog object in the
-   * target account.
+   * A mapping of the ID of catalog objects in the source account to the ID of the same catalog
+   * objects in the target account.
    */
-  private final HashMap<String, CatalogObject> sourceIdToTargetObject;
+  private final HashMap<String, String> sourceIdToTargetId;
 
   /**
    * Constructs a new {@link ItemCloneUtil}.
    *
    * @param presentAtAllLocationsByDefault if true, items should be enabled at all locations in the
    * target account
-   * @param sourceIdToTargetObject a mapping of the ID of catalog objects in the source account to
-   * the same catalog object in the target account
+   * @param sourceIdToTargetId a mapping of the ID of catalog objects in the source account to the
+   * ID of the same catalog objects in the target account.
    */
   ItemCloneUtil(boolean presentAtAllLocationsByDefault, boolean includeAppliedModifierLists,
-      boolean includeAppliedTaxes, HashMap<String, CatalogObject> sourceIdToTargetObject) {
+      boolean includeAppliedTaxes, HashMap<String, String> sourceIdToTargetId) {
     super(CatalogObject.TypeEnum.ITEM, presentAtAllLocationsByDefault);
     this.includeAppliedModifierLists = includeAppliedModifierLists;
     this.includeAppliedTaxes = includeAppliedTaxes;
-    this.sourceIdToTargetObject = sourceIdToTargetObject;
+    this.sourceIdToTargetId = sourceIdToTargetId;
   }
 
   @Override CatalogItem getCatalogData(CatalogObject catalogObject) {
@@ -79,7 +80,7 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
     String categoryId = item.getCategoryId();
     if (fromSourceAccount) {
       // Convert the source category ID to a target category ID.
-      categoryId = getTargetCategoryIdBySourceId(categoryId);
+      categoryId = getTargetIdBySourceId(categoryId);
     }
     return item.getName() + ":::" + categoryId;
   }
@@ -103,7 +104,7 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
     // Update the category ID to refer to the target category ID.
     CatalogItem item = catalogObject.getItemData();
     String sourceCategoryId = item.getCategoryId();
-    String targetCategoryId = getTargetCategoryIdBySourceId(item.getCategoryId());
+    String targetCategoryId = getTargetIdBySourceId(sourceCategoryId);
     item.categoryId(targetCategoryId);
 
     // Update the tax IDs to refer to the target tax IDs.
@@ -112,7 +113,7 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
     item.taxIds(new ArrayList<>());
     if (includeAppliedTaxes) {
       for (String sourceTaxId : sourceTaxIds) {
-        String targetTaxId = getTargetTaxIdBySourceId(sourceTaxId);
+        String targetTaxId = getTargetIdBySourceId(sourceTaxId);
         item.addTaxIdsItem(targetTaxId);
       }
     }
@@ -123,8 +124,14 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
       // Update the modifier list IDs to refer to the target modifier list IDs.
       for (CatalogItemModifierListInfo modifierListInfo : item.getModifierListInfo()) {
         String sourceModifierListId = modifierListInfo.getModifierListId();
-        String targetModifierListId = getTargetModifierListIdBySourceId(sourceModifierListId);
+        String targetModifierListId = getTargetIdBySourceId(sourceModifierListId);
         modifierListInfo.modifierListId(targetModifierListId);
+
+        for (CatalogModifierOverride modifierOverride : modifierListInfo.getModifierOverrides()) {
+          String modifierSourceId = modifierOverride.getModifierId();
+          String modifierTargetId = getTargetIdBySourceId(modifierSourceId);
+          modifierOverride.setModifierId(modifierTargetId);
+        }
       }
     } else {
       // If we didn't clone modifier lists, then clear them out from the item.
@@ -197,36 +204,23 @@ class ItemCloneUtil extends CatalogObjectCloneUtil<CatalogItem> {
   }
 
   /**
-   * Get the ID of the category in the target account given the ID in the source account.
+   * Get the ID of a {@link CatalogObject} in the target account given the ID from the source
+   * account.
    *
-   * @param sourceCategoryIdOrNull the ID of the category in the source account, or null
-   * @return the ID of the category in the target account, or null if sourceCategoryIdOrNull is null
+   * @param sourceIdOrNull the ID of the {@link CatalogObject} in the source account, or null
+   * @return the ID of the {@link CatalogObject} in the target account, or null if sourceIdOrNull is
+   * null
    */
-  private String getTargetCategoryIdBySourceId(String sourceCategoryIdOrNull) {
-    return sourceCategoryIdOrNull == null ? null
-        : sourceIdToTargetObject.get(sourceCategoryIdOrNull).getId();
-  }
+  private String getTargetIdBySourceId(String sourceIdOrNull) {
+    if (sourceIdOrNull == null) {
+      return null;
+    }
 
-  /**
-   * Get the ID of the modifier list in the target account given the ID in the source account.
-   *
-   * @param sourceModifierListIdOrNull the ID of the modifier list in the source account, or null
-   * @return the ID of the modifier list in the target account, or null if
-   * sourceModifierListIdOrNull is null
-   */
-  private String getTargetModifierListIdBySourceId(String sourceModifierListIdOrNull) {
-    return sourceModifierListIdOrNull == null ? null
-        : sourceIdToTargetObject.get(sourceModifierListIdOrNull).getId();
-  }
-
-  /**
-   * Get the ID of the category in the target account given the ID in the source account.
-   *
-   * @param sourceTaxIdOrNull the ID of the tax in the source account, or null
-   * @return the ID of the tax in the target account, or null if sourceTaxIdOrNull is null
-   */
-  private String getTargetTaxIdBySourceId(String sourceTaxIdOrNull) {
-    return sourceTaxIdOrNull == null ? null
-        : sourceIdToTargetObject.get(sourceTaxIdOrNull).getId();
+    String targetId = sourceIdToTargetId.get(sourceIdOrNull);
+    if (targetId == null) {
+      throw new RuntimeException(
+          "Expected target ID not found for source ID: " + sourceIdOrNull);
+    }
+    return targetId;
   }
 }
